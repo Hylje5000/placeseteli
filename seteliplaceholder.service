@@ -1,0 +1,14 @@
+[Unit]
+Description=Seteli Placeholder Service
+After=network.target
+
+[Service]
+User=gonaukko
+WorkingDirectory=/home/gonaukko/seteliplaceholder
+ExecStart=/home/gonaukko/seteliplaceholder/venv/bin/gunicorn --workers 1 --bind 127.0.0.1:8000 app:app
+Restart=always
+RestartSec=5
+Environment="FLASK_ENV=production"
+
+[Install]
+WantedBy=multi-user.target

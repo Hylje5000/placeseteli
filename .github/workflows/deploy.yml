@@ -1,0 +1,66 @@
+name: Deploy to Azure VM
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+            
+      - name: Setup known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PROD_SERVER_IP }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to VM
+        run: |
+          # Rsync the project files to the server
+          rsync -avz --exclude '.git' --exclude 'venv' --exclude '__pycache__' ./ ${{ secrets.SERVER_USERNAME }}@${{ secrets.PROD_SERVER_IP }}:/home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/
+          
+          # Connect to the server and run setup commands
+          ssh ${{ secrets.SERVER_USERNAME }}@${{ secrets.PROD_SERVER_IP }} '
+            # Create virtual environment if it doesn't exist
+            if [ ! -d "/home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/venv" ]; then
+              cd /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder
+              python3 -m venv venv
+            fi
+            
+            # Install/update dependencies
+            cd /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            
+            # Copy systemd service file if needed
+            sudo cp /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/seteliplaceholder.service /etc/systemd/system/
+            
+            # Copy nginx config if needed
+            sudo cp /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/nginx_seteli.conf /etc/nginx/sites-available/seteli.gona.fi
+            
+            # Create symlink if it doesn't exist
+            if [ ! -f "/etc/nginx/sites-enabled/seteli.gona.fi" ]; then
+              sudo ln -s /etc/nginx/sites-available/seteli.gona.fi /etc/nginx/sites-enabled/
+            fi
+            
+            # Reload systemd, restart service, and reload nginx
+            sudo systemctl daemon-reload
+            sudo systemctl enable seteliplaceholder.service
+            sudo systemctl restart seteliplaceholder.service
+            sudo nginx -t && sudo systemctl reload nginx
+            
+            # Set up SSL with Certbot if needed
+            if [ ! -d "/etc/letsencrypt/live/seteli.gona.fi" ]; then
+              sudo apt-get update
+              sudo apt-get install -y certbot python3-certbot-nginx
+              sudo certbot --nginx -d seteli.gona.fi --non-interactive --agree-tos -m miska@miskakyto.fi
+            fi
+          '
