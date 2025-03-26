@@ -25,44 +25,74 @@ jobs:
       
       - name: Deploy to VM
         run: |
+          echo "Starting deployment process..."
+          
+          # Debug: Check if the target directory exists before rsync
+          echo "Checking if target directory exists on the server..."
+          ssh ${{ secrets.SERVER_USERNAME }}@${{ secrets.PROD_SERVER_IP }} '
+            if [ -d "/home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder" ]; then
+              echo "Target directory exists."
+            else
+              echo "Target directory does not exist. Creating it..."
+              mkdir -p /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder
+            fi
+          '
+          
           # Rsync the project files to the server
+          echo "Running rsync to copy project files to the server..."
           rsync -avz --exclude '.git' --exclude 'venv' --exclude '__pycache__' ./ ${{ secrets.SERVER_USERNAME }}@${{ secrets.PROD_SERVER_IP }}:/home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/
           
-          # Connect to the server and run setup commands
+          # Debug: Verify files on the server after rsync
+          echo "Verifying files on the server after rsync..."
           ssh ${{ secrets.SERVER_USERNAME }}@${{ secrets.PROD_SERVER_IP }} '
-            # Create virtual environment if it doesn't exist
+            echo "Listing files in the target directory:"
+            ls -la /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder
+          '
+          
+          # Connect to the server and run setup commands
+          echo "Connecting to the server to run setup commands..."
+          ssh ${{ secrets.SERVER_USERNAME }}@${{ secrets.PROD_SERVER_IP }} '
+            echo "Checking if virtual environment exists..."
             if [ ! -d "/home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/venv" ]; then
+              echo "Virtual environment not found. Creating it..."
               cd /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder
               python3 -m venv venv
+            else
+              echo "Virtual environment already exists."
             fi
             
-            # Install/update dependencies
+            echo "Installing/updating dependencies..."
             cd /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder
             source venv/bin/activate
             pip install --upgrade pip
             pip install -r requirements.txt
             
-            # Copy systemd service file if needed
+            echo "Copying systemd service file if needed..."
             sudo cp /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/seteliplaceholder.service /etc/systemd/system/
             
-            # Copy nginx config if needed
+            echo "Copying nginx config if needed..."
             sudo cp /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/nginx_seteli.conf /etc/nginx/sites-available/seteli.gona.fi
             
-            # Create symlink if it doesn't exist
+            echo "Creating symlink for nginx config if it doesn't exist..."
             if [ ! -f "/etc/nginx/sites-enabled/seteli.gona.fi" ]; then
               sudo ln -s /etc/nginx/sites-available/seteli.gona.fi /etc/nginx/sites-enabled/
             fi
             
-            # Reload systemd, restart service, and reload nginx
+            echo "Reloading systemd and restarting services..."
             sudo systemctl daemon-reload
             sudo systemctl enable seteliplaceholder.service
             sudo systemctl restart seteliplaceholder.service
+            
+            echo "Testing nginx configuration and reloading..."
             sudo nginx -t && sudo systemctl reload nginx
             
-            # Set up SSL with Certbot if needed
+            echo "Checking if SSL is set up with Certbot..."
             if [ ! -d "/etc/letsencrypt/live/seteli.gona.fi" ]; then
+              echo "SSL not found. Setting up SSL with Certbot..."
               sudo apt-get update
               sudo apt-get install -y certbot python3-certbot-nginx
               sudo certbot --nginx -d seteli.gona.fi --non-interactive --agree-tos -m miska@miskakyto.fi
+            else
+              echo "SSL already set up."
             fi
           '
