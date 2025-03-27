@@ -51,7 +51,7 @@ jobs:
           
           # Connect to the server and run setup commands
           echo "Connecting to the server to run setup commands..."
-          ssh ${{ secrets.SERVER_USERNAME }}@${{ secrets.PROD_SERVER_IP }} '
+          ssh ${{ secrets.SERVER_USERNAME }}@${{ secrets.PROD_SERVER_IP }} <<'EOF'
             echo "Checking if virtual environment exists..."
             if [ ! -d "/home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/venv" ]; then
               echo "Virtual environment not found. Creating it..."
@@ -95,4 +95,4 @@ jobs:
             else
               echo "SSL already set up."
             fi
-          ' # <-- Properly closed single quote
+EOF
