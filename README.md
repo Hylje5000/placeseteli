@@ -1,6 +1,6 @@
 # PlaceSeteli
 
-Add a nice placeholder tonnin seteli for your web app.
+Add a nice placeholder tonnin seteli for your web app, visit it at [seteli.gona.fi](https://seteli.gona.fi)
 _(It's like placekitten but with finnish humor)_
 
 ## How It Works
