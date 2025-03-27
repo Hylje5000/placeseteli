@@ -73,7 +73,7 @@ jobs:
             echo "Copying nginx config if needed..."
             sudo cp /home/${{ secrets.SERVER_USERNAME }}/seteliplaceholder/nginx_seteli.conf /etc/nginx/sites-available/seteli.gona.fi
             
-            echo "Creating symlink for nginx config if it doesn\'t exist..."
+            echo "Creating symlink for nginx config if it doesn't exist..."
             if [ ! -f "/etc/nginx/sites-enabled/seteli.gona.fi" ]; then
               sudo ln -s /etc/nginx/sites-available/seteli.gona.fi /etc/nginx/sites-enabled/
             fi
